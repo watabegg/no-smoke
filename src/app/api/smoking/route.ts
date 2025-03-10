@@ -1,9 +1,9 @@
 // pages/api/smoking.ts
 import prisma from "@/lib/prisma";
 
-type SmokingEvent = {
-  timestamp: string;
-};
+// type SmokingEvent = {
+//   timestamp: string;
+// };
 
 export async function GET() {
   try {
