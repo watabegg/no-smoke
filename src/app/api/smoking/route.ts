@@ -19,12 +19,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { event } = await request.json();
+  const { timestamp } = await request.json();
 
   try {
       await prisma.smoking.create({
       data: {
-        timestamp: new Date(event.timestamp).toISOString()
+        timestamp: timestamp
       }
       });
     return Response.json({ success: true });
