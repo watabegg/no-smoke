@@ -22,7 +22,6 @@ type SmokingEvent = {
 };
 
 type CigaretteSettings = {
-  id: number;
   brand: string;
   tar: number;
   nicotine: number;
@@ -43,7 +42,6 @@ export default function Home() {
   const [state, setState] = useState<AppState>({
     smokingEvents: [],
     cigaretteSettings: {
-      id: 0,
       brand: '',
       tar: 0,
       nicotine: 0,
@@ -102,7 +100,7 @@ export default function Home() {
 
   const saveCigaretteSettings = useCallback(async () => {
     try {
-      const { id, ...settingsData } = cigaretteSettings;
+      const { ...settingsData } = cigaretteSettings;
       const res = await fetch('/api/cigarette', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
