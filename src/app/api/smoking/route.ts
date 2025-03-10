@@ -1,26 +1,20 @@
 // pages/api/smoking.ts
-import { promises as fs } from 'fs';
-import path from 'path';
-import type { NextApiRequest, NextApiResponse } from 'next';
+import prisma from "@/lib/prisma";
 
 type SmokingEvent = {
   timestamp: string;
 };
 
-const filePath = path.join(process.cwd(), 'src', 'db', 'smoking.csv');
-
 export async function GET() {
   try {
-    const fileContent = await fs.readFile(filePath, 'utf8');
-    const lines = fileContent.split('\n').filter(line => line.trim() !== '');
-    // 先頭行はヘッダーなので除外
-    const data: SmokingEvent[] = lines.slice(1).map(line => {
-      const [timestamp] = line.split(',');
-      return { timestamp: timestamp.trim() };
+    const events = await prisma.smoking.findMany({
+      orderBy: {
+        timestamp: 'desc'
+      }
     });
-    return Response.json(data);
+    return Response.json(events);
   } catch (error) {
-    return Response.json({ error: `ファイル読み込みエラー${error}` }, { status: 500 });
+    return Response.json({ error: `データベースエラー: ${error}` }, { status: 500 });
   }
 }
 
@@ -30,16 +24,19 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid events data' }, { status: 400 });
   }
 
-  // CSV 形式に変換（ヘッダー付き）
-  let csv = 'timestamp\n';
-  events.forEach((event: SmokingEvent) => {
-    csv += `${event.timestamp}\n`;
-  });
-
   try {
-    await fs.writeFile(filePath, csv, 'utf8');
+    // トランザクションを使用して一括保存
+    await prisma.$transaction(
+      events.map((event: SmokingEvent) => 
+        prisma.smoking.create({
+          data: {
+            timestamp: new Date(event.timestamp).toISOString()
+          }
+        })
+      )
+    );
     return Response.json({ success: true });
   } catch (error) {
-    return Response.json({ error: `ファイル書き込みエラー${error}` }, { status: 500 });
+    return Response.json({ error: `データベースエラー: ${error}` }, { status: 500 });
   }
 }
