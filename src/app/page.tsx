@@ -118,7 +118,14 @@ export default function Home() {
   }, [selectedGraph, sortedDays, selectedDay]);
 
   // 日別集計用グラフデータ
-  let aggregatedData: any = { labels: sortedDays, datasets: [] };
+  let aggregatedData: {
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      backgroundColor: string;
+    }[];
+  } = { labels: sortedDays, datasets: [] };
   if (selectedGraph === 'daily_count') {
     aggregatedData = {
       labels: sortedDays,
@@ -155,7 +162,14 @@ export default function Home() {
   }
 
   // 時間別グラフ用データ（対象日の各時間帯ごとの本数を集計）
-  let timeOfDayData: any = null;
+  let timeOfDayData: {
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      backgroundColor: string;
+    }[];
+  } | null = null;
   if (selectedGraph === 'time_of_day' && selectedDay && groups[selectedDay]) {
     // 24時間分のビン（0～23: 0が6:00 JSTに相当、5が5:00 JST）
     const bins = new Array(24).fill(0);
