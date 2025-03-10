@@ -19,20 +19,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { events } = await request.json();
-  if (!Array.isArray(events)) {
-    return Response.json({ error: 'Invalid events data' }, { status: 400 });
-  }
+  const { event } = await request.json();
 
   try {
-    // イベントを順次保存
-    for (const event of events) {
       await prisma.smoking.create({
       data: {
         timestamp: new Date(event.timestamp).toISOString()
       }
       });
-    }
     return Response.json({ success: true });
   } catch (error) {
     return Response.json({ error: `データベースエラー: ${error}` }, { status: 500 });
