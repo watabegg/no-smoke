@@ -25,16 +25,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    // トランザクションを使用して一括保存
-    await prisma.$transaction(
-      events.map((event: SmokingEvent) => 
-        prisma.smoking.create({
-          data: {
-            timestamp: new Date(event.timestamp).toISOString()
-          }
-        })
-      )
-    );
+    // イベントを順次保存
+    for (const event of events) {
+      await prisma.smoking.create({
+      data: {
+        timestamp: new Date(event.timestamp).toISOString()
+      }
+      });
+    }
     return Response.json({ success: true });
   } catch (error) {
     return Response.json({ error: `データベースエラー: ${error}` }, { status: 500 });
