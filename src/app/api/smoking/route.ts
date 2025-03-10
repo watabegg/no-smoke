@@ -40,6 +40,8 @@ export async function POST(request: Request) {
     
     // Format timestamp for message
     const date = new Date(timestamp);
+    // Add 9 hours to adjust for Japan time zone
+    date.setHours(date.getHours() + 9);
     const month = date.getMonth() + 1; // getMonth() returns 0-11
     const day = date.getDate();
     const hours = date.getHours();
