@@ -15,10 +15,12 @@ import {
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 type SmokingEvent = {
+  id: number;
   timestamp: string;
 };
 
 type CigaretteSettings = {
+  id: number;
   brand: string;
   tar: number;
   nicotine: number;
@@ -27,82 +29,82 @@ type CigaretteSettings = {
 export default function Home() {
   const [events, setEvents] = useState<SmokingEvent[]>([]);
   const [settings, setSettings] = useState<CigaretteSettings>({
+    id: 0,
     brand: '',
     tar: 0,
     nicotine: 0,
   });
   const [manualTimestamp, setManualTimestamp] = useState<string>('');
   const [bulkImportText, setBulkImportText] = useState<string>('');
-
-  // グラフビューの切り替え用
   const [selectedGraph, setSelectedGraph] = useState<string>('daily_count');
-  // 時間別グラフで選択する対象日（グループ化した日付）
   const [selectedDay, setSelectedDay] = useState<string>('');
 
-  // 初回レンダリング時に API 経由でデータを読み込み
   useEffect(() => {
     fetchEvents();
     fetchSettings();
   }, []);
 
   const fetchEvents = async () => {
-    const res = await fetch('/api/smoking');
-    if (res.ok) {
+    try {
+      const res = await fetch('/api/smoking');
+      if (!res.ok) throw new Error('Failed to fetch events');
       const data = await res.json();
       setEvents(data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
     }
   };
 
   const fetchSettings = async () => {
-    const res = await fetch('/api/cigarette');
-    if (res.ok) {
+    try {
+      const res = await fetch('/api/cigarette');
+      if (!res.ok) throw new Error('Failed to fetch settings');
       const data = await res.json();
       setSettings(data);
+    } catch (error) {
+      console.error('Error fetching settings:', error);
     }
   };
 
-  // API 経由でイベントを保存（CSV 書き換え）
-  const saveEvents = async (newEvents: SmokingEvent[]) => {
-    const res = await fetch('/api/smoking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ events: newEvents }),
-    });
-    if (res.ok) {
-      setEvents(newEvents);
+  const saveEvent = async (timestamp: string) => {
+    try {
+      const res = await fetch('/api/smoking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timestamp }),
+      });
+      if (!res.ok) throw new Error('Failed to save event');
+      await fetchEvents(); // 保存後に最新データを再取得
+    } catch (error) {
+      console.error('Error saving event:', error);
     }
   };
 
-  // API 経由で設定を保存（CSV 書き換え）
-  const saveSettings = async (newSettings: CigaretteSettings) => {
-    const res = await fetch('/api/cigarette', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSettings),
-    });
-    if (res.ok) {
-      setSettings(newSettings);
+  const saveSettings = async (newSettings: Omit<CigaretteSettings, 'id'>) => {
+    try {
+      const res = await fetch('/api/cigarette', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings),
+      });
+      if (!res.ok) throw new Error('Failed to save settings');
+      await fetchSettings(); // 保存後に最新データを再取得
+    } catch (error) {
+      console.error('Error saving settings:', error);
     }
   };
 
-  // 「喫煙」ボタン：現在時刻のイベントを保存
   const handleSmokingButton = () => {
-    const newEvent: SmokingEvent = { timestamp: new Date().toISOString() };
-    const newEvents = [...events, newEvent];
-    saveEvents(newEvents);
+    saveEvent(new Date().toISOString());
   };
 
-  // 手動入力フォーム送信
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualTimestamp) return;
-    const newEvent: SmokingEvent = { timestamp: new Date(manualTimestamp).toISOString() };
-    const newEvents = [...events, newEvent];
-    saveEvents(newEvents);
+    saveEvent(new Date(manualTimestamp).toISOString());
     setManualTimestamp('');
   };
 
-  // タバコ設定フォーム送信
   const handleSettingsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     saveSettings(settings);
@@ -228,26 +230,30 @@ export default function Home() {
 
   // 一括入力フォーム送信（過去の記録のインポート）  
   // 入力例：1行につき「YYYY-MM-DD, 本数」
-  const handleBulkImport = (e: React.FormEvent) => {
+  const handleBulkImport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bulkImportText) return;
     const lines = bulkImportText.split('\n');
-    const newEvents = [...events];
-    lines.forEach(line => {
+    
+    // Process each line sequentially with await
+    for (const line of lines) {
       const trimmed = line.trim();
-      if (!trimmed) return;
+      if (!trimmed) continue;
+      
       const parts = trimmed.split(',');
-      if (parts.length !== 2) return;
+      if (parts.length !== 2) continue;
+      
       const dateStr = parts[0].trim();
       const count = parseInt(parts[1].trim(), 10);
-      if (!dateStr || isNaN(count)) return;
-      // 各記録はデフォルトで12:00 JST（ローカルタイムとして解釈）を設定
+      if (!dateStr || isNaN(count)) continue;
+
+      // Save each smoking event for the count
       for (let i = 0; i < count; i++) {
         const dt = new Date(dateStr + 'T12:00:00');
-        newEvents.push({ timestamp: dt.toISOString() });
+        await saveEvent(dt.toISOString());
       }
-    });
-    saveEvents(newEvents);
+    }
+
     setBulkImportText('');
   };
 
