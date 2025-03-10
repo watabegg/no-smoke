@@ -20,19 +20,16 @@ type SmokingEvent = {
 
 type CigaretteSettings = {
   brand: string;
-  tar?: number;
-  nicotine?: number;
+  tar: number;
+  nicotine: number;
 };
-
-const LOCAL_STORAGE_EVENTS_KEY = 'smokingEvents';
-const LOCAL_STORAGE_SETTINGS_KEY = 'cigaretteSettings';
 
 export default function Home() {
   const [events, setEvents] = useState<SmokingEvent[]>([]);
   const [settings, setSettings] = useState<CigaretteSettings>({
     brand: '',
-    tar: undefined,
-    nicotine: undefined,
+    tar: 0,
+    nicotine: 0,
   });
   const [manualTimestamp, setManualTimestamp] = useState<string>('');
   const [bulkImportText, setBulkImportText] = useState<string>('');
@@ -42,27 +39,50 @@ export default function Home() {
   // 時間別グラフで選択する対象日（グループ化した日付）
   const [selectedDay, setSelectedDay] = useState<string>('');
 
-  // 初回レンダリング時に localStorage から読み込み
+  // 初回レンダリング時に API 経由でデータを読み込み
   useEffect(() => {
-    const storedEvents = localStorage.getItem(LOCAL_STORAGE_EVENTS_KEY);
-    if (storedEvents) {
-      setEvents(JSON.parse(storedEvents));
-    }
-    const storedSettings = localStorage.getItem(LOCAL_STORAGE_SETTINGS_KEY);
-    if (storedSettings) {
-      setSettings(JSON.parse(storedSettings));
-    }
+    fetchEvents();
+    fetchSettings();
   }, []);
 
-  // localStorage にイベントを保存
-  const saveEvents = (newEvents: SmokingEvent[]) => {
-    localStorage.setItem(LOCAL_STORAGE_EVENTS_KEY, JSON.stringify(newEvents));
-    setEvents(newEvents);
+  const fetchEvents = async () => {
+    const res = await fetch('/api/smoking');
+    if (res.ok) {
+      const data = await res.json();
+      setEvents(data);
+    }
   };
 
-  const saveSettings = (newSettings: CigaretteSettings) => {
-    localStorage.setItem(LOCAL_STORAGE_SETTINGS_KEY, JSON.stringify(newSettings));
-    setSettings(newSettings);
+  const fetchSettings = async () => {
+    const res = await fetch('/api/cigarette');
+    if (res.ok) {
+      const data = await res.json();
+      setSettings(data);
+    }
+  };
+
+  // API 経由でイベントを保存（CSV 書き換え）
+  const saveEvents = async (newEvents: SmokingEvent[]) => {
+    const res = await fetch('/api/smoking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ events: newEvents }),
+    });
+    if (res.ok) {
+      setEvents(newEvents);
+    }
+  };
+
+  // API 経由で設定を保存（CSV 書き換え）
+  const saveSettings = async (newSettings: CigaretteSettings) => {
+    const res = await fetch('/api/cigarette', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSettings),
+    });
+    if (res.ok) {
+      setSettings(newSettings);
+    }
   };
 
   // 「喫煙」ボタン：現在時刻のイベントを保存
@@ -171,13 +191,13 @@ export default function Home() {
     }[];
   } | null = null;
   if (selectedGraph === 'time_of_day' && selectedDay && groups[selectedDay]) {
-    // 24時間分のビン（0～23: 0が6:00 JSTに相当、5が5:00 JST）
+    // 24 時間分のビン（0～23: 0が6:00 JSTに相当、5が5:00 JST）
     const bins = new Array(24).fill(0);
+    // 選択日の6:00〜翌日の6:00を対象とする
     const selectedDayStart = new Date(selectedDay + 'T06:00:00+09:00');
     const nextDayStart = new Date(selectedDayStart);
     nextDayStart.setDate(nextDayStart.getDate() + 1);
 
-    // 選択日の6:00から翌日6:00までのイベントを対象にする
     const targetEvents = events.filter(event => {
       const eventDate = new Date(event.timestamp);
       return eventDate >= selectedDayStart && eventDate < nextDayStart;
@@ -186,8 +206,8 @@ export default function Home() {
     targetEvents.forEach((event) => {
       const eventDate = new Date(event.timestamp);
       const hour = eventDate.getHours();
-      // 6時を0にする相対時間
-      const relativeHour = (hour + 18) % 24; // 6時を0とする変換
+      // 6 時を 0 とする相対時間
+      const relativeHour = (hour + 18) % 24;
       bins[relativeHour]++;
     });
     const labels = [
@@ -281,7 +301,7 @@ export default function Home() {
             <label className="block font-semibold">タール (mg):</label>
             <input
               type="number"
-              value={settings.tar}
+              value={settings.tar || ''}
               placeholder='0'
               onChange={(e) => setSettings({ ...settings, tar: Number(e.target.value) })}
               className="input w-full"
@@ -291,7 +311,7 @@ export default function Home() {
             <label className="block font-semibold">ニコチン (mg):</label>
             <input
               type="number"
-              value={settings.nicotine}
+              value={settings.nicotine || ''}
               placeholder='0'
               onChange={(e) => setSettings({ ...settings, nicotine: Number(e.target.value) })}
               className="input w-full"
@@ -330,81 +350,81 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-2">グラフ表示</h2>
         <div className="mb-4">
           <select
-        value={selectedGraph}
-        onChange={(e) => { setSelectedGraph(e.target.value); setSelectedDay(''); }}
-        className="select select-bordered w-full max-w-xs"
+            value={selectedGraph}
+            onChange={(e) => { setSelectedGraph(e.target.value); setSelectedDay(''); }}
+            className="select select-bordered w-full max-w-xs"
           >
-        <option value="daily_count">日別本数</option>
-        <option value="daily_nicotine">日別ニコチン</option>
-        <option value="daily_tar">日別タール</option>
-        <option value="time_of_day">時間別本数 (一日)</option>
+            <option value="daily_count">日別本数</option>
+            <option value="daily_nicotine">日別ニコチン</option>
+            <option value="daily_tar">日別タール</option>
+            <option value="time_of_day">時間別本数 (一日)</option>
           </select>
         </div>
 
         {selectedGraph === 'time_of_day' && (
           <div className="mb-4">
-        <label className="mr-2 font-semibold">日付選択:</label>
-        <select
-          value={selectedDay}
-          onChange={(e) => setSelectedDay(e.target.value)}
-          className="select select-bordered w-full max-w-xs"
-        >
-          {sortedDays.map(day => (
-            <option key={day} value={day}>
-          {day}
-            </option>
-          ))}
-        </select>
+            <label className="mr-2 font-semibold">日付選択:</label>
+            <select
+              value={selectedDay}
+              onChange={(e) => setSelectedDay(e.target.value)}
+              className="select select-bordered w-full max-w-xs"
+            >
+              {sortedDays.map(day => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
         <div className="bg-white p-4 rounded shadow w-full" style={{ height: 'calc(100vh - 400px)', minHeight: '300px' }}>
           {selectedGraph === 'time_of_day' && timeOfDayData ? (
-        <Bar
-          data={timeOfDayData}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-          legend: { position: 'top' },
-          title: { display: true, text: `時間別本数 (${selectedDay})` },
-            },
-            scales: {
-          x: {
-            ticks: {
-              maxRotation: 0,
-              minRotation: 0,
-              font: {
-            size: 10
-              }
-            }
-          }
-            }
-          }}
-        />
+            <Bar
+              data={timeOfDayData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'top' },
+                  title: { display: true, text: `時間別本数 (${selectedDay})` },
+                },
+                scales: {
+                  x: {
+                    ticks: {
+                      maxRotation: 0,
+                      minRotation: 0,
+                      font: {
+                        size: 10
+                      }
+                    }
+                  }
+                }
+              }}
+            />
           ) : (
-        <Bar
-          data={aggregatedData}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-          legend: { position: 'top' },
-          title: { display: true, text: '日別集計' },
-            },
-            scales: {
-          x: {
-            ticks: {
-              maxRotation: 45,
-              minRotation: 45,
-              font: {
-            size: 10
-              }
-            }
-          }
-            }
-          }}
-        />
+            <Bar
+              data={aggregatedData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'top' },
+                  title: { display: true, text: '日別集計' },
+                },
+                scales: {
+                  x: {
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 45,
+                      font: {
+                        size: 10
+                      }
+                    }
+                  }
+                }
+              }}
+            />
           )}
         </div>
       </div>
