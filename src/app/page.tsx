@@ -173,12 +173,21 @@ export default function Home() {
   if (selectedGraph === 'time_of_day' && selectedDay && groups[selectedDay]) {
     // 24時間分のビン（0～23: 0が6:00 JSTに相当、5が5:00 JST）
     const bins = new Array(24).fill(0);
-    groups[selectedDay].forEach((event) => {
+    const selectedDayStart = new Date(selectedDay + 'T06:00:00+09:00');
+    const nextDayStart = new Date(selectedDayStart);
+    nextDayStart.setDate(nextDayStart.getDate() + 1);
+
+    // 選択日の6:00から翌日6:00までのイベントを対象にする
+    const targetEvents = events.filter(event => {
       const eventDate = new Date(event.timestamp);
-      const jstDate = new Date(eventDate.getTime() + 9 * 60 * 60 * 1000);
-      const hour = jstDate.getHours();
+      return eventDate >= selectedDayStart && eventDate < nextDayStart;
+    });
+
+    targetEvents.forEach((event) => {
+      const eventDate = new Date(event.timestamp);
+      const hour = eventDate.getHours();
       // 6時を0にする相対時間
-      const relativeHour = hour >= 6 ? hour - 6 : hour + 18;
+      const relativeHour = (hour + 18) % 24; // 6時を0とする変換
       bins[relativeHour]++;
     });
     const labels = [
@@ -317,61 +326,85 @@ export default function Home() {
       </div>
 
       {/* グラフ表示セクション */}
-      <div className="mb-6">
+      <div className="mb-6 w-full">
         <h2 className="text-xl font-bold mb-2">グラフ表示</h2>
         <div className="mb-4">
           <select
-            value={selectedGraph}
-            onChange={(e) => { setSelectedGraph(e.target.value); setSelectedDay(''); }}
-            className="border rounded px-2 py-1"
+        value={selectedGraph}
+        onChange={(e) => { setSelectedGraph(e.target.value); setSelectedDay(''); }}
+        className="select select-bordered w-full max-w-xs"
           >
-            <option value="daily_count">日別本数</option>
-            <option value="daily_nicotine">日別ニコチン</option>
-            <option value="daily_tar">日別タール</option>
-            <option value="time_of_day">時間別本数 (一日)</option>
+        <option value="daily_count">日別本数</option>
+        <option value="daily_nicotine">日別ニコチン</option>
+        <option value="daily_tar">日別タール</option>
+        <option value="time_of_day">時間別本数 (一日)</option>
           </select>
         </div>
 
         {selectedGraph === 'time_of_day' && (
           <div className="mb-4">
-            <label className="mr-2 font-semibold">日付選択:</label>
-            <select
-              value={selectedDay}
-              onChange={(e) => setSelectedDay(e.target.value)}
-              className="border rounded px-2 py-1"
-            >
-              {sortedDays.map(day => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
+        <label className="mr-2 font-semibold">日付選択:</label>
+        <select
+          value={selectedDay}
+          onChange={(e) => setSelectedDay(e.target.value)}
+          className="select select-bordered w-full max-w-xs"
+        >
+          {sortedDays.map(day => (
+            <option key={day} value={day}>
+          {day}
+            </option>
+          ))}
+        </select>
           </div>
         )}
 
-        <div className="bg-white p-4 rounded shadow">
+        <div className="bg-white p-4 rounded shadow w-full" style={{ height: 'calc(100vh - 400px)', minHeight: '300px' }}>
           {selectedGraph === 'time_of_day' && timeOfDayData ? (
-            <Bar
-              data={timeOfDayData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'top' },
-                  title: { display: true, text: `時間別本数 (${selectedDay})` },
-                },
-              }}
-            />
+        <Bar
+          data={timeOfDayData}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+          legend: { position: 'top' },
+          title: { display: true, text: `時間別本数 (${selectedDay})` },
+            },
+            scales: {
+          x: {
+            ticks: {
+              maxRotation: 0,
+              minRotation: 0,
+              font: {
+            size: 10
+              }
+            }
+          }
+            }
+          }}
+        />
           ) : (
-            <Bar
-              data={aggregatedData}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: { position: 'top' },
-                  title: { display: true, text: '日別集計' },
-                },
-              }}
-            />
+        <Bar
+          data={aggregatedData}
+          options={{
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+          legend: { position: 'top' },
+          title: { display: true, text: '日別集計' },
+            },
+            scales: {
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              font: {
+            size: 10
+              }
+            }
+          }
+            }
+          }}
+        />
           )}
         </div>
       </div>
