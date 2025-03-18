@@ -175,9 +175,7 @@ export default function Home() {
     const groups: { [day: string]: SmokingEvent[] } = {};
     smokingEvents.forEach((event) => {
       const jstDate = new Date(event.timestamp);
-      if (jstDate.getHours() < 6) {
-        jstDate.setDate(jstDate.getDate() - 1);
-      }
+      jstDate.setHours(jstDate.getHours() + 3)
       const dayStr = jstDate.toISOString().split('T')[0];
       if (!groups[dayStr]) {
         groups[dayStr] = [];
