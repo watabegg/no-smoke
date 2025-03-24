@@ -154,7 +154,7 @@ const StatsTab: React.FC<StatsTabProps> = ({
                   },
                   elements: {
                     line: {
-                      tension: 0.4 // 曲線の滑らかさ
+                      tension: 0 // 曲線の代わりに直線を使用
                     },
                     point: {
                       radius: 3,
