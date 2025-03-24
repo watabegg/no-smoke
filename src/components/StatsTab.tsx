@@ -20,6 +20,7 @@ type SafeChartData = {
     fill?: boolean;
     radius?: number;
     hoverRadius?: number;
+    spanGaps?: boolean;
   }[];
 };
 

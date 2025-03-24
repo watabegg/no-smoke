@@ -54,8 +54,13 @@ export const getChartData = (
           data: last30DaysData.map(d => d.count),
           borderColor: 'rgba(75,192,192,1)',
           backgroundColor: 'rgba(75,192,192,0.2)',
-          tension: 0.4,
+          tension: 0,
+          spanGaps: true, // 欠損値をスキップ
           fill: true,
+          pointRadius: last30DaysData.map(d => d.count === 0 ? 0 : 3),
+          pointHoverRadius: last30DaysData.map(d => d.count === 0 ? 0 : 5),
+          pointHitRadius: 10,
+          pointHoverBackgroundColor: 'rgba(75,192,192,1)',
         },
       ],
     };
