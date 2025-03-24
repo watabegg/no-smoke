@@ -1,56 +1,41 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler } from 'chart.js';
+import { AppState } from '@/types';
+import { groupEventsByDay, getLast30DaysData, getChartData } from '@/utils/chartUtils';
+
+// コンポーネントのインポート
+import Header from '@/components/Header';
+import HealthStatus from '@/components/HealthStatus';
+import TabNavigation from '@/components/TabNavigation';
+import RecordTab from '@/components/RecordTab';
+import StatsTab from '@/components/StatsTab';
+import SettingsTab from '@/components/SettingsTab';
+
+ChartJS.register(
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  LineElement,
+  PointElement,
+  Title, 
+  Tooltip, 
   Legend,
-} from 'chart.js';
-import { format } from 'date-fns'
-import { ja } from 'date-fns/locale'
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
-type SmokingEvent = {
-  id: number;
-  timestamp: string;
-};
-
-type CigaretteSettings = {
-  brand: string;
-  tar: number;
-  nicotine: number;
-};
-
-type AppState = {
-  smokingEvents: SmokingEvent[];
-  cigaretteSettings: CigaretteSettings;
-  ui: {
-    manualTimestamp: string;
-    bulkImportText: string;
-    selectedGraph: 'daily_count' | 'daily_nicotine' | 'daily_tar' | 'time_of_day';
-    selectedDay: string;
-  };
-};
+  Filler
+);
 
 export default function Home() {
   const [state, setState] = useState<AppState>({
     smokingEvents: [],
-    cigaretteSettings: {
-      brand: '',
-      tar: 0,
-      nicotine: 0,
-    },
+    cigaretteSettings: null,
     ui: {
       manualTimestamp: '',
       bulkImportText: '',
       selectedGraph: 'daily_count',
       selectedDay: '',
+      activeTab: 'record',
+      showHealthBenefits: false,
     }
   });
 
@@ -81,12 +66,37 @@ export default function Home() {
     }
   }, []);
 
+  // 既存のデータを更新する関数
+  const updateExistingData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/smoking', {
+        method: 'PUT'
+      });
+      
+      if (!res.ok) throw new Error('Failed to update existing data');
+      
+      const result = await res.json();
+      console.log(result.message);
+      
+      // データを再取得
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating existing data:', error);
+    }
+  }, [fetchData]);
+
   const saveSmokingEvent = useCallback(async (timestamp: string) => {
     try {
+      // 最新のタバコ設定のIDを取得
+      const cigaretteId = cigaretteSettings?.id;
+      
       const res = await fetch('/api/smoking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timestamp }),
+        body: JSON.stringify({ 
+          timestamp,
+          cigaretteId
+        }),
       });
       
       if (!res.ok) throw new Error('Failed to save event');
@@ -96,9 +106,11 @@ export default function Home() {
     } catch (error) {
       console.error('Error saving event:', error);
     }
-  }, [fetchData]);
+  }, [fetchData, cigaretteSettings]);
 
   const saveCigaretteSettings = useCallback(async () => {
+    if (!cigaretteSettings) return;
+    
     try {
       const { ...settingsData } = cigaretteSettings;
       const res = await fetch('/api/cigarette', {
@@ -115,14 +127,21 @@ export default function Home() {
     }
   }, [cigaretteSettings, fetchData]);
 
-  // Load data on component mount
+  // Load data on component mount and update existing data
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchData().then(() => {
+      updateExistingData();
+    });
+  }, [fetchData, updateExistingData]);
 
   // UI action handlers
   const handleSmokingButton = () => {
     saveSmokingEvent(new Date().toISOString());
+    // 記録タブに自動的に切り替え
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, activeTab: 'record' }
+    }));
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -170,25 +189,102 @@ export default function Home() {
     }));
   };
 
-  // Data processing for charts
-  const groupEventsByDay = () => {
-    const groups: { [day: string]: SmokingEvent[] } = {};
-    smokingEvents.forEach((event) => {
-      const jstDate = new Date(event.timestamp);
-      jstDate.setHours(jstDate.getHours() + 3)
-      const dayStr = jstDate.toISOString().split('T')[0];
-      if (!groups[dayStr]) {
-        groups[dayStr] = [];
-      }
-      groups[dayStr].push(event);
-    });
-    return groups;
+  // タブ切り替え処理
+  const handleTabChange = (tab: AppState['ui']['activeTab']) => {
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, activeTab: tab }
+    }));
   };
 
-  const groups = groupEventsByDay();
-  const sortedDays = Object.keys(groups).sort();
+  // 健康改善情報の表示切り替え
+  const toggleHealthBenefits = () => {
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, showHealthBenefits: !prev.ui.showHealthBenefits }
+    }));
+  };
 
-  // Select latest day when viewing time of day chart
+  // UI状態の更新ハンドラー
+  const handleManualTimestampChange = (value: string) => {
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, manualTimestamp: value }
+    }));
+  };
+
+  const handleBulkImportTextChange = (value: string) => {
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, bulkImportText: value }
+    }));
+  };
+
+  const handleGraphTypeChange = (value: AppState['ui']['selectedGraph']) => {
+    setState(prev => ({
+      ...prev, 
+      ui: { 
+        ...prev.ui, 
+        selectedGraph: value,
+        selectedDay: ''
+      }
+    }));
+  };
+
+  const handleSelectedDayChange = (value: string) => {
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, selectedDay: value }
+    }));
+  };
+
+  const handleBrandChange = (value: string) => {
+    if (!cigaretteSettings) return;
+    setState(prev => ({
+      ...prev,
+      cigaretteSettings: { ...prev.cigaretteSettings!, brand: value }
+    }));
+  };
+
+  const handleTarChange = (value: number) => {
+    if (!cigaretteSettings) return;
+    setState(prev => ({
+      ...prev,
+      cigaretteSettings: { ...prev.cigaretteSettings!, tar: value }
+    }));
+  };
+
+  const handleNicotineChange = (value: number) => {
+    if (!cigaretteSettings) return;
+    setState(prev => ({
+      ...prev,
+      cigaretteSettings: { ...prev.cigaretteSettings!, nicotine: value }
+    }));
+  };
+
+  // 最後の喫煙からの経過時間を計算
+  const lastSmokingTime = useMemo(() => {
+    if (smokingEvents.length === 0) return null;
+    return new Date(smokingEvents[0].timestamp);
+  }, [smokingEvents]);
+
+  const timeSinceLastSmoking = useMemo(() => {
+    if (!lastSmokingTime) return null;
+    const now = new Date();
+    const diffMs = now.getTime() - lastSmokingTime.getTime();
+    
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(hours / 24);
+    
+    return { hours, days, diffMs };
+  }, [lastSmokingTime]);
+
+  // チャートデータの準備
+  const groups = useMemo(() => groupEventsByDay(smokingEvents), [smokingEvents]);
+  const sortedDays = useMemo(() => Object.keys(groups).sort(), [groups]);
+  const last30DaysData = useMemo(() => getLast30DaysData(groups), [groups]);
+
+  // 最新の日付を選択
   useEffect(() => {
     if (ui.selectedGraph === 'time_of_day' && sortedDays.length > 0 && !ui.selectedDay) {
       setState(prev => ({
@@ -198,283 +294,78 @@ export default function Home() {
     }
   }, [ui.selectedGraph, ui.selectedDay, sortedDays]);
 
-  // Chart data preparation
-  const getChartData = () => {
-    if (ui.selectedGraph === 'time_of_day' && ui.selectedDay && groups[ui.selectedDay]) {
-      // Time of day chart
-      const bins = new Array(24).fill(0);
-      const selectedDayStart = new Date(ui.selectedDay + 'T06:00:00+09:00');
-      const nextDayStart = new Date(selectedDayStart);
-      nextDayStart.setDate(nextDayStart.getDate() + 1);
-      
-      const targetEvents = smokingEvents.filter(event => {
-        const eventDate = new Date(event.timestamp);
-        const jstEventDate = new Date(eventDate.getTime() + 9 * 60 * 60 * 1000);
-        return jstEventDate >= selectedDayStart && jstEventDate < nextDayStart;
-      });
-
-      targetEvents.forEach((event) => {
-        const eventDate = new Date(event.timestamp);
-        const hour = eventDate.getHours();
-        const relativeHour = (hour + 18) % 24;
-        bins[relativeHour]++;
-      });
-      
-      const labels = [
-        "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17",
-        "18", "19", "20", "21", "22", "23", "0", "1", "2", "3", "4", "5"
-      ];
-      
-      return {
-        labels,
-        datasets: [
-          {
-            label: '本数',
-            data: bins,
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          },
-        ],
-      };
-    } else {
-      // Daily aggregated charts
-      let data;
-      switch (ui.selectedGraph) {
-        case 'daily_nicotine':
-          data = {
-            label: 'ニコチン (mg)',
-            data: sortedDays.map((day) => groups[day].length * (cigaretteSettings.nicotine || 0)),
-            backgroundColor: 'rgba(153,102,255,0.6)',
-          };
-          break;
-        case 'daily_tar':
-          data = {
-            label: 'タール (mg)',
-            data: sortedDays.map((day) => groups[day].length * (cigaretteSettings.tar || 0)),
-            backgroundColor: 'rgba(255,159,64,0.6)',
-          };
-          break;
-        default: // daily_count
-          data = {
-            label: '本数',
-            data: sortedDays.map((day) => groups[day].length),
-            backgroundColor: 'rgba(75,192,192,0.6)',
-          };
-      }
-      
-      return {
-        labels: sortedDays,
-        datasets: [data],
-      };
-    }
-  };
-
-  const chartData = getChartData();
+  const chartData = useMemo(() => 
+    getChartData(
+      ui.selectedGraph, 
+      ui.selectedDay, 
+      smokingEvents, 
+      groups, 
+      sortedDays, 
+      last30DaysData
+    ), 
+    [ui.selectedGraph, ui.selectedDay, smokingEvents, groups, sortedDays, last30DaysData]
+  );
 
   return (
-    <div className="min-h-screen p-4 items-center flex flex-col space-y-4">
-      <h1 className="text-3xl font-bold mb-4">わたべの禁煙・減煙アプリ</h1>
+    <div className="min-h-screen bg-base-100 text-base-content">
+      {/* ヘッダー */}
+      <Header onSmokingButtonClick={handleSmokingButton} />
 
-      {/* 喫煙ボタン */}
-      <div className="my-6">
-        <button
-          onClick={handleSmokingButton}
-          className="btn btn-error btn-xl"
-        >
-          喫煙
-        </button>
-      </div>
+      {/* 最後の喫煙からの経過時間と健康状態 */}
+      <HealthStatus 
+        lastSmokingTime={lastSmokingTime}
+        timeSinceLastSmoking={timeSinceLastSmoking}
+        showHealthBenefits={ui.showHealthBenefits}
+        toggleHealthBenefits={toggleHealthBenefits}
+      />
 
-      {/* 手動入力フォーム */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-2">手動入力</h2>
-        <form onSubmit={handleManualSubmit} className="flex items-center space-x-2">
-          <input
-            type="datetime-local"
-            value={ui.manualTimestamp}
-            onChange={(e) => setState(prev => ({
-              ...prev,
-              ui: { ...prev.ui, manualTimestamp: e.target.value }
-            }))}
-            className="border rounded px-2 py-1"
+      {/* メインコンテンツ */}
+      <main className="container mx-auto p-4">
+        {/* タブナビゲーション */}
+        <TabNavigation 
+          activeTab={ui.activeTab} 
+          onTabChange={handleTabChange} 
+        />
+
+        {/* 記録タブ */}
+        {ui.activeTab === 'record' && (
+          <RecordTab 
+            smokingEvents={smokingEvents}
+            manualTimestamp={ui.manualTimestamp}
+            bulkImportText={ui.bulkImportText}
+            cigaretteSettings={cigaretteSettings}
+            onManualSubmit={handleManualSubmit}
+            onBulkImport={handleBulkImport}
+            onManualTimestampChange={handleManualTimestampChange}
+            onBulkImportTextChange={handleBulkImportTextChange}
           />
-          <button
-            type="submit"
-            className="btn btn-primary"
-          >
-            保存
-          </button>
-        </form>
-      </div>
-
-      {/* タバコ設定フォーム */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-2">タバコの設定</h2>
-        <form onSubmit={handleSettingsSubmit} className="space-y-2">
-          <div>
-            <label className="block font-semibold">銘柄:</label>
-            <input
-              type="text"
-              value={cigaretteSettings.brand}
-              onChange={(e) => setState(prev => ({
-                ...prev,
-                cigaretteSettings: { ...prev.cigaretteSettings, brand: e.target.value }
-              }))}
-              className="input w-full"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold">タール (mg):</label>
-            <input
-              type="number"
-              value={cigaretteSettings.tar || ''}
-              placeholder='0'
-              onChange={(e) => setState(prev => ({
-                ...prev,
-                cigaretteSettings: { ...prev.cigaretteSettings, tar: Number(e.target.value) }
-              }))}
-              className="input w-full"
-            />
-          </div>
-          <div>
-            <label className="block font-semibold">ニコチン (mg):</label>
-            <input
-              type="number"
-              value={cigaretteSettings.nicotine || ''}
-              placeholder='0'
-              onChange={(e) => setState(prev => ({
-                ...prev,
-                cigaretteSettings: { ...prev.cigaretteSettings, nicotine: Number(e.target.value) }
-              }))}
-              className="input w-full"
-            />
-          </div>
-          <button
-            type="submit"
-            className="btn btn-primary"
-          >
-            保存
-          </button>
-        </form>
-      </div>
-
-      {/* 一括入力フォーム */}
-      <div className="mb-6">
-        <h2 className="text-xl font-bold mb-2">一括入力 (過去の記録のインポート)</h2>
-        <form onSubmit={handleBulkImport} className="space-y-2">
-          <textarea
-            value={ui.bulkImportText}
-            onChange={(e) => setState(prev => ({
-              ...prev,
-              ui: { ...prev.ui, bulkImportText: e.target.value }
-            }))}
-            placeholder="YYYY-MM-DD, 本数&#10;例: 2023-03-15, 5"
-            className="border rounded px-2 py-1 w-full h-24"
-          />
-          <button
-            type="submit"
-            className="btn btn-accent font-bold py-2 px-4 rounded"
-          >
-            インポート
-          </button>
-        </form>
-      </div>
-
-      {/* グラフ表示セクション */}
-      <div className="mb-6 w-full">
-        <h2 className="text-xl font-bold mb-2">グラフ表示</h2>
-        <div className="mb-4">
-          <select
-            value={ui.selectedGraph}
-            onChange={(e) => setState(prev => ({
-              ...prev, 
-              ui: { 
-                ...prev.ui, 
-                selectedGraph: e.target.value as AppState['ui']['selectedGraph'],
-                selectedDay: ''
-              }
-            }))}
-            className="select select-bordered w-full max-w-xs"
-          >
-            <option value="daily_count">日別本数</option>
-            <option value="daily_nicotine">日別ニコチン</option>
-            <option value="daily_tar">日別タール</option>
-            <option value="time_of_day">時間別本数 (一日)</option>
-          </select>
-        </div>
-
-        {ui.selectedGraph === 'time_of_day' && (
-          <div className="mb-4">
-            <label className="mr-2 font-semibold">日付選択:</label>
-            <select
-              value={ui.selectedDay}
-              onChange={(e) => setState(prev => ({
-                ...prev,
-                ui: { ...prev.ui, selectedDay: e.target.value }
-              }))}
-              className="select select-bordered w-full max-w-xs"
-            >
-              {sortedDays.map(day => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
-          </div>
         )}
 
-        <div className="bg-white p-4 rounded shadow w-full" style={{ height: 'calc(100vh - 400px)', minHeight: '300px' }}>
-          <Bar
-            data={chartData}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { position: 'top' },
-                title: { 
-                  display: true, 
-                  text: ui.selectedGraph === 'time_of_day' 
-                    ? `時間別本数 (${ui.selectedDay})` 
-                    : '日別集計' 
-                },
-              },
-              scales: {
-                x: {
-                  ticks: {
-                    maxRotation: ui.selectedGraph === 'time_of_day' ? 0 : 45,
-                    minRotation: ui.selectedGraph === 'time_of_day' ? 0 : 45,
-                    font: { size: 10 }
-                  }
-                }
-              }
-            }}
+        {/* 統計タブ */}
+        {ui.activeTab === 'stats' && (
+          <StatsTab 
+            smokingEvents={smokingEvents}
+            cigaretteSettings={cigaretteSettings}
+            selectedGraph={ui.selectedGraph}
+            selectedDay={ui.selectedDay}
+            sortedDays={sortedDays}
+            chartData={chartData}
+            onGraphTypeChange={handleGraphTypeChange}
+            onSelectedDayChange={handleSelectedDayChange}
           />
-        </div>
-      </div>
+        )}
 
-      {/* データ表示 */}
-      <div className="w-full">
-        <h2 className="text-xl font-bold mb-2">データ表示</h2>
-        <div className="bg-white p-4 rounded shadow w-full" style={{ height: 'calc(100vh - 400px)', minHeight: '300px', overflowY: 'auto' }}>
-          <table className="table w-full">
-            <thead>
-              <tr>
-                <th>日付</th>
-                <th>時間</th>
-                <th>銘柄</th>
-              </tr>
-            </thead>
-            <tbody>
-              {smokingEvents.map(event => (
-                <tr key={event.id}>
-                    <td>{format(new Date(event.timestamp), 'yyyy年MM月dd日', { locale: ja })}</td>
-                    <td>{format(new Date(event.timestamp), 'HH:mm:ss', { locale: ja })}</td>
-                  <td>{cigaretteSettings.brand}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* 設定タブ */}
+        {ui.activeTab === 'settings' && cigaretteSettings && (
+          <SettingsTab 
+            cigaretteSettings={cigaretteSettings}
+            onSettingsSubmit={handleSettingsSubmit}
+            onBrandChange={handleBrandChange}
+            onTarChange={handleTarChange}
+            onNicotineChange={handleNicotineChange}
+          />
+        )}
+      </main>
     </div>
   );
 }

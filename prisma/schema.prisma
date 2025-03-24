@@ -14,13 +14,16 @@ datasource db {
 }
 
 model Smoking {
-  id        String   @id @default(cuid())
-  timestamp String 
+  id          String    @id @default(cuid())
+  timestamp   String 
+  cigaretteId String?
+  cigarette   Cigarette? @relation(fields: [cigaretteId], references: [id])
 }
 
 model Cigarette {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   brand     String
   tar       Int
   nicotine  Float
+  smokings  Smoking[]
 }

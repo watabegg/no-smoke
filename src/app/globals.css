@@ -28,14 +28,14 @@
   --color-warning-content: oklch(98% 0.022 95.277);
   --color-error: oklch(63% 0.237 25.331);
   --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 2px;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.5rem;
+  --size-field: 0.5rem;
+  --border: 1px;
   --depth: 0;
-  --noise: 1;
+  --noise: 0;
 }
 
 
@@ -44,32 +44,114 @@
   default: false;
   prefersdark: true;
   color-scheme: "dark";
-  --color-base-100: oklch(98% 0 0);
-  --color-base-200: oklch(97% 0 0);
-  --color-base-300: oklch(92% 0 0);
-  --color-base-content: oklch(30% 0.05 270);
-  --color-primary: oklch(68% 0.169 237.323);
+  --color-base-100: oklch(20% 0 0);
+  --color-base-200: oklch(17% 0 0);
+  --color-base-300: oklch(15% 0 0);
+  --color-base-content: oklch(90% 0.02 270);
+  --color-primary: oklch(65% 0.169 237.323);
   --color-primary-content: oklch(100% 0 0);
-  --color-secondary: oklch(62% 0.265 303.9);
+  --color-secondary: oklch(60% 0.265 303.9);
   --color-secondary-content: oklch(100% 0 0);
-  --color-accent: oklch(79% 0.209 151.711);
-  --color-accent-content: oklch(26% 0.065 152.934);
+  --color-accent: oklch(75% 0.209 151.711);
+  --color-accent-content: oklch(20% 0.065 152.934);
   --color-neutral: oklch(26% 0 0);
   --color-neutral-content: oklch(98% 0 0);
-  --color-info: oklch(71% 0.143 215.221);
+  --color-info: oklch(68% 0.143 215.221);
   --color-info-content: oklch(98% 0.019 200.873);
-  --color-success: oklch(76% 0.233 130.85);
+  --color-success: oklch(73% 0.233 130.85);
   --color-success-content: oklch(98% 0.031 120.757);
-  --color-warning: oklch(82% 0.189 84.429);
+  --color-warning: oklch(80% 0.189 84.429);
   --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(63% 0.237 25.331);
+  --color-error: oklch(60% 0.237 25.331);
   --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 2px;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.5rem;
+  --size-field: 0.5rem;
+  --border: 1px;
   --depth: 0;
-  --noise: 1;
+  --noise: 0;
+}
+
+/* カスタムスタイル */
+:root {
+  --font-sans: var(--font-noto-sans-jp), var(--font-geist-sans), sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* レスポンシブデザインの改善 */
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* アニメーション */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* スクロールバーのカスタマイズ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--b2));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--p));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--pf));
+}
+
+/* カード、ボタン、入力フィールドのスタイル改善 */
+.card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.btn {
+  transition: all 0.2s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+input, select, textarea {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  box-shadow: 0 0 0 3px hsla(var(--p) / 0.2);
 }
