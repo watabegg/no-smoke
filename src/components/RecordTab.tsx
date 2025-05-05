@@ -42,11 +42,13 @@ const RecordTab: React.FC<RecordTabProps> = ({
                 value={manualTimestamp}
                 onChange={(e) => onManualTimestampChange(e.target.value)}
                 className="input input-bordered w-full"
+                disabled
               />
             </div>
             <button
               type="submit"
               className="btn btn-primary mt-6"
+              disabled
             >
               保存
             </button>
@@ -68,11 +70,13 @@ const RecordTab: React.FC<RecordTabProps> = ({
                 onChange={(e) => onBulkImportTextChange(e.target.value)}
                 placeholder="例: 2023-03-15, 5&#10;2023-03-16, 3"
                 className="textarea textarea-bordered h-32"
+                disabled
               />
             </div>
             <button
               type="submit"
               className="btn btn-accent w-full md:w-auto"
+              disabled
             >
               インポート
             </button>

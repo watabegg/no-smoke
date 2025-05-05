@@ -66,6 +66,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({
             <button
               type="submit"
               className="btn btn-primary w-full"
+              disabled
             >
               保存
             </button>

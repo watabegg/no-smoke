@@ -17,6 +17,7 @@ const Header: React.FC<HeaderProps> = ({ onSmokingButtonClick }) => {
           onClick={onSmokingButtonClick}
           className="btn btn-error btn-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
           aria-label="喫煙記録"
+          disabled
         >
           喫煙記録
         </button>
