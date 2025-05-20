@@ -321,6 +321,9 @@ export default function Home() {
 
       {/* メインコンテンツ */}
       <main className="container mx-auto p-4">
+        <div className="text-center text-2xl font-bold mb-4">
+          誰かがcurlとかするからAPI閉じました(怒)
+        </div>
         {/* タブナビゲーション */}
         <TabNavigation 
           activeTab={ui.activeTab} 

@@ -34,13 +34,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    await prisma.cigarette.create({
-      data: {
-        brand: newSettings.brand,
-        tar: newSettings.tar || 0,
-        nicotine: newSettings.nicotine || 0,
-      }
-    });
+  //   await prisma.cigarette.create({
+  //     data: {
+  //       brand: newSettings.brand,
+  //       tar: newSettings.tar || 0,
+  //       nicotine: newSettings.nicotine || 0,
+  //     }
+  //   });
     return Response.json({ success: true });
   } catch (error) {
     return Response.json({ error: `データベースエラー: ${error}` }, { status: 500 });

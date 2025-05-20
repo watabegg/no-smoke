@@ -30,44 +30,44 @@ export async function POST(request: Request) {
   const { timestamp, cigaretteId } = await request.json();
   
   try {
-    // 最新のタバコ設定を取得（cigaretteIdが指定されていない場合）
-    let finalCigaretteId = cigaretteId;
-    if (!finalCigaretteId) {
-      const latestCigarette = await prisma.cigarette.findFirst({
-        orderBy: {
-          id: 'desc'
-        }
-      });
-      if (latestCigarette) {
-        finalCigaretteId = latestCigarette.id;
-      }
-    }
+  //   // 最新のタバコ設定を取得（cigaretteIdが指定されていない場合）
+  //   let finalCigaretteId = cigaretteId;
+  //   if (!finalCigaretteId) {
+  //     const latestCigarette = await prisma.cigarette.findFirst({
+  //       orderBy: {
+  //         id: 'desc'
+  //       }
+  //     });
+  //     if (latestCigarette) {
+  //       finalCigaretteId = latestCigarette.id;
+  //     }
+  //   }
     
-    // Save to database
-    await prisma.smoking.create({
-      data: {
-        timestamp: timestamp,
-        cigaretteId: finalCigaretteId
-      }
-    });
+  //   // Save to database
+  //   await prisma.smoking.create({
+  //     data: {
+  //       timestamp: timestamp,
+  //       cigaretteId: finalCigaretteId
+  //     }
+  //   });
     
-    // Format timestamp for message
-    const date = new Date(timestamp);
-    // Add 9 hours to adjust for Japan time zone
-    date.setHours(date.getHours() + 9);
-    const month = date.getMonth() + 1; // getMonth() returns 0-11
-    const day = date.getDate();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
+  //   // Format timestamp for message
+  //   const date = new Date(timestamp);
+  //   // Add 9 hours to adjust for Japan time zone
+  //   date.setHours(date.getHours() + 9);
+  //   const month = date.getMonth() + 1; // getMonth() returns 0-11
+  //   const day = date.getDate();
+  //   const hours = date.getHours();
+  //   const minutes = date.getMinutes();
     
-    // Create formatted message
-    const message = `${month}月${day}日${hours}時${minutes}分に吸ったよ！`;
+  //   // Create formatted message
+  //   const message = `${month}月${day}日${hours}時${minutes}分に吸ったよ！`;
     
-    // Send message to LINE
-    await client.broadcast({
-      type: 'text',
-      text: message
-    });
+  //   // Send message to LINE
+  //   await client.broadcast({
+  //     type: 'text',
+  //     text: message
+  //   });
     
     return Response.json({ success: true });
   } catch (error) {
@@ -90,18 +90,18 @@ export async function PUT() {
     }
     
     // cigaretteIdが設定されていないすべての喫煙記録を更新
-    const updateResult = await prisma.smoking.updateMany({
-      where: {
-        cigaretteId: null
-      },
-      data: {
-        cigaretteId: latestCigarette.id
-      }
-    });
+    // const updateResult = await prisma.smoking.updateMany({
+    //   where: {
+    //     cigaretteId: null
+    //   },
+    //   data: {
+    //     cigaretteId: latestCigarette.id
+    //   }
+    // });
     
     return Response.json({ 
       success: true, 
-      message: `${updateResult.count}件の喫煙記録を更新しました`,
+      message: `喫煙記録を更新しました`,
       cigaretteId: latestCigarette.id
     });
   } catch (error) {
