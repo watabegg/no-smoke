@@ -27,7 +27,6 @@ const config = {
 const client = new Client(config);
 
 export async function POST(request: Request) {
-  const { timestamp, cigaretteId } = await request.json();
   
   try {
   //   // 最新のタバコ設定を取得（cigaretteIdが指定されていない場合）
